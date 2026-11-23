@@ -19,7 +19,7 @@ export function MarketSelector() {
     <div className="flex items-center gap-1.5 md:gap-2 min-w-0">
       <LineChart className="w-3.5 h-3.5 md:w-4 md:h-4 text-primary shrink-0" />
       <Select value={selectedSymbol} onValueChange={setSelectedSymbol}>
-        <SelectTrigger className="w-[140px] sm:w-[165px] h-9 bg-background border-white/10 font-semibold px-2.5 text-xs">
+        <SelectTrigger className="w-[124px] sm:w-[165px] h-9 bg-background border-white/10 font-semibold px-2.5 text-xs">
           <SelectValue placeholder="Market">
             <span className="block truncate whitespace-nowrap text-left">{selectedLabel}</span>
           </SelectValue>

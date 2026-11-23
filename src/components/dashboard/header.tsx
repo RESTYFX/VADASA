@@ -1,7 +1,7 @@
 
 "use client";
 
-import React from 'react';
+import React, { useState } from 'react';
 import { useDeriv } from '@/components/deriv-provider';
 import { MarketSelector } from './market-selector';
 import { Button } from '@/components/ui/button';
@@ -14,6 +14,12 @@ import { Badge } from '@/components/ui/badge';
 
 export function Header() {
   const { authState, logout, switchAccount, isReconnecting, networkGlitch, refreshCountdown } = useDeriv();
+  const [isRefreshing, setIsRefreshing] = useState(false);
+
+  const handleMobileRefresh = () => {
+    setIsRefreshing(true);
+    window.location.reload();
+  };
   const activeAccount = authState.accounts[authState.activeAccountIndex];
   const isVirtualAccount = activeAccount?.is_virtual ?? Boolean(authState.isVirtual);
   const displayBalance = authState.balance ?? activeAccount?.balance ?? 0;
@@ -111,7 +117,7 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-2 md:gap-4 lg:gap-5 min-w-0 justify-end">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 lg:gap-5 min-w-0 justify-end">
           {refreshCountdown !== null && (
             <Badge variant="destructive" className="hidden sm:flex bg-red-500/20 text-red-500 border-red-500/30 text-[9px] font-black uppercase tracking-widest px-3 py-1 items-center gap-2 animate-in slide-in-from-top-2 shrink-0">
               <Timer className="w-3 h-3 animate-pulse" />
@@ -127,6 +133,19 @@ export function Header() {
           )}
 
           <MarketSelector />
+
+          {/* Mobile Circular Page Refresh Button */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handleMobileRefresh}
+            aria-label="Refresh page"
+            title="Refresh page"
+            className="md:hidden h-10 w-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-foreground transition-all active:scale-95 shrink-0"
+          >
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+          </Button>
 
           {/* Desktop Account Switcher */}
           {authState.accounts.length > 0 && (
