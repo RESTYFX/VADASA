@@ -282,9 +282,11 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
     if (prices.length === 0) return;
     setIsAnalyzingDex(true);
     const mode = strategyParams.dexAnalysisMode || 'even_odd';
-    const barrier = parseInt(strategyParams.dexBarrier || '4');
-    const minLen = parseInt(strategyParams.dexPatternMinLen || '2');
-    const maxLen = Math.min(parseInt(strategyParams.dexPatternMaxLen || '4'), 8);
+    const parsedBarrier = parseInt(strategyParams.dexBarrier ?? '4', 10);
+    const barrier = Number.isNaN(parsedBarrier) ? 4 : Math.max(0, Math.min(8, parsedBarrier));
+    const underBarrier = 9 - barrier;
+    const minLen = parseInt(strategyParams.dexPatternMinLen || '2', 10);
+    const maxLen = Math.min(parseInt(strategyParams.dexPatternMaxLen || '4', 10), 8);
     
     const digits = prices.map(p => getDigit(p, selectedSymbol));
     const symbols = digits.map(d => {
@@ -300,13 +302,15 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
         if (!patternsMap[seq]) patternsMap[seq] = { pos: 0, neg: 0, total: 0 };
         
         for (let next = 1; next <= 3; next++) {
-          const outcome = symbols[i + len + next - 1];
+          const nextIdx = i + len + next - 1;
           if (mode === 'even_odd') {
+            const outcome = symbols[nextIdx];
             if (outcome === 'E') patternsMap[seq].pos++;
             else patternsMap[seq].neg++;
           } else {
-            if (outcome === 'H') patternsMap[seq].pos++;
-            else patternsMap[seq].neg++;
+            const nextDigit = digits[nextIdx];
+            if (nextDigit > barrier) patternsMap[seq].pos++;
+            if (nextDigit < underBarrier) patternsMap[seq].neg++;
           }
           patternsMap[seq].total++;
         }
@@ -321,7 +325,7 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
         
         const bestOutcome = mode === 'even_odd' 
           ? (posProb >= negProb ? 'EVEN' : 'ODD')
-          : (posProb >= negProb ? `OVER ${barrier}` : `UNDER ${barrier + 1}`);
+          : (posProb >= negProb ? `OVER ${barrier}` : `UNDER ${underBarrier}`);
           
         return {
           sequence: seq,
@@ -582,14 +586,15 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
   }, [executionSettings.stake, executionSettings.martingale, executionSettings.isAutoMartingaleEnabled, currentMartingaleLevel, authState.accounts, authState.activeAccountIndex, authState.currency, selectedSymbol, currentTicks, isHuntingInReal, getSessionToken]);
 
   useEffect(() => {
-    if (!isMonitoringDex || !historicalAnalysis || historicalAnalysis.discoveredPatterns.length === 0 || isAutoTrading) return;
+    if (!isMonitoringDex || !historicalAnalysis || historicalAnalysis.discoveredPatterns.length === 0 || isAutoTrading || pendingTradesRef.current.length > 0) return;
     const bestPattern = historicalAnalysis.discoveredPatterns[0];
     const len = bestPattern.sequence.length;
     if (currentTicks.length < len) return;
 
     const samples = currentTicks.slice(0, len).reverse();
     const mode = strategyParams.dexAnalysisMode;
-    const barrier = parseInt(strategyParams.dexBarrier);
+    const parsedBarrier = parseInt(strategyParams.dexBarrier ?? '4', 10);
+    const barrier = Number.isNaN(parsedBarrier) ? 4 : Math.max(0, Math.min(8, parsedBarrier));
     
     const currentSeq = samples.map(t => {
       const d = getDigit(t.quote, selectedSymbol);

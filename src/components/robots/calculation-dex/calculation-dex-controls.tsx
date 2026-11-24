@@ -198,26 +198,41 @@ export function CalculationDexControls() {
               </div>
            </div>
 
-           {strategyParams.dexAnalysisMode === 'over_under' && (
-             <div className="space-y-4">
-                <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-1.5 tracking-wider">
-                  <Target className="w-3.5 h-3.5" /> Neural Analysis Barrier
-                </Label>
-                <div className="space-y-1.5">
-                   <Label className="text-[9px] font-bold uppercase text-muted-foreground">Target Digit Barrier</Label>
-                   <Input 
-                     type="number" min="0" max="8"
-                     className="h-12 font-code font-black text-lg bg-background border-accent/20" 
-                     value={strategyParams.dexBarrier || '4'} 
-                     onChange={(e) => setStrategyParams({ dexBarrier: e.target.value })} 
-                     disabled={isAnalyzingDex || isMonitoringDex}
-                   />
-                   <p className="text-[8px] text-muted-foreground uppercase italic leading-tight">
-                     Hunting for Over {strategyParams.dexBarrier} vs Under {parseInt(strategyParams.dexBarrier || '4') + 1}
-                   </p>
-                </div>
-             </div>
-           )}
+           {strategyParams.dexAnalysisMode === 'over_under' && (() => {
+             const parsedDexBarrier = parseInt(strategyParams.dexBarrier ?? '4', 10);
+             const overBarrierVal = Number.isNaN(parsedDexBarrier) ? 4 : Math.max(0, Math.min(8, parsedDexBarrier));
+             const underBarrierVal = 9 - overBarrierVal;
+             return (
+               <div className="space-y-4">
+                  <Label className="text-[10px] font-black uppercase text-accent flex items-center gap-1.5 tracking-wider">
+                    <Target className="w-3.5 h-3.5" /> Neural Analysis Barrier
+                  </Label>
+                  <div className="space-y-1.5">
+                     <Label className="text-[9px] font-bold uppercase text-muted-foreground">Target Digit Barrier</Label>
+                     <Input 
+                       type="number" min="0" max="8"
+                       className="h-12 font-code font-black text-lg bg-background border-accent/20" 
+                       value={strategyParams.dexBarrier ?? '4'} 
+                       onChange={(e) => {
+                         const raw = e.target.value;
+                         if (raw === '') {
+                           setStrategyParams({ dexBarrier: '' });
+                           return;
+                         }
+                         const num = parseInt(raw, 10);
+                         if (!Number.isNaN(num)) {
+                           setStrategyParams({ dexBarrier: String(Math.max(0, Math.min(8, num))) });
+                         }
+                       }} 
+                       disabled={isAnalyzingDex || isMonitoringDex}
+                     />
+                     <p className="text-[8px] text-muted-foreground uppercase italic leading-tight">
+                       Hunting for Over {overBarrierVal} vs Under {underBarrierVal}
+                     </p>
+                  </div>
+               </div>
+             );
+           })()}
         </div>
 
         {/* Step 6: Multi-Play Authorization */}
