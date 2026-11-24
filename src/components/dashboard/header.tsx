@@ -27,7 +27,7 @@ export function Header() {
   const [isRefreshing, setIsRefreshing] = useState(false);
   const isSaveSettingsEnabled = sessionProtocol.isSaveSettingsEnabled;
 
-  const handleMobileRefresh = () => {
+  const handlePageRefresh = () => {
     setIsRefreshing(true);
     window.location.reload();
   };
@@ -108,7 +108,7 @@ export function Header() {
   return (
     <header className="w-full border-b bg-card/80 backdrop-blur-md shadow-sm sticky top-0 z-50">
       {/* Primary Top Row */}
-      <div className="h-12 md:h-16 flex items-center justify-between gap-2 md:gap-4 px-3 md:px-6 lg:px-8">
+      <div className="h-12 md:h-16 flex items-center justify-between gap-2 md:gap-3 px-3 md:px-5 lg:px-8">
         <div className="flex items-center gap-2 md:gap-3 shrink-0">
           <SidebarTrigger className="h-10 w-10 hover:bg-white/10 rounded-lg text-foreground shrink-0" />
           <div className="flex items-center gap-2">
@@ -116,7 +116,7 @@ export function Header() {
               <Zap className="w-4 h-4 md:w-6 md:h-6" />
             </div>
             <div className="flex flex-col">
-              <h1 className="text-xl font-black tracking-tight text-primary uppercase italic select-none hidden lg:block leading-none">
+              <h1 className="text-xl font-black tracking-tight text-primary uppercase italic select-none hidden xl:block leading-none">
                 Alchemist
               </h1>
               {networkGlitch && (
@@ -128,7 +128,7 @@ export function Header() {
           </div>
         </div>
 
-        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-4 lg:gap-5 min-w-0 justify-end">
+        <div className="flex items-center gap-1.5 sm:gap-2 md:gap-2.5 lg:gap-4 min-w-0 justify-end">
           {refreshCountdown !== null && (
             <Badge variant="destructive" className="hidden sm:flex bg-red-500/20 text-red-500 border-red-500/30 text-[9px] font-black uppercase tracking-widest px-3 py-1 items-center gap-2 animate-in slide-in-from-top-2 shrink-0">
               <Timer className="w-3 h-3 animate-pulse" />
@@ -170,24 +170,11 @@ export function Header() {
             />
           </div>
 
-          {/* Mobile Circular Page Refresh Button */}
-          <Button
-            type="button"
-            variant="ghost"
-            size="icon"
-            onClick={handleMobileRefresh}
-            aria-label="Refresh page"
-            title="Refresh page"
-            className="md:hidden h-10 w-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-foreground transition-all active:scale-95 shrink-0"
-          >
-            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
-          </Button>
-
           {/* Desktop Account Switcher */}
           {authState.accounts.length > 0 && (
             <div className="hidden md:block shrink-0">
               {renderAccountSelect(
-                "w-[140px] lg:w-[175px] h-10 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5"
+                "w-[136px] lg:w-[170px] h-10 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5"
               )}
             </div>
           )}
@@ -211,6 +198,19 @@ export function Header() {
               </AvatarFallback>
             </Avatar>
           </div>
+
+          {/* Circular Page Refresh Button (Mobile & Desktop) */}
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon"
+            onClick={handlePageRefresh}
+            aria-label="Refresh page"
+            title="Refresh page"
+            className="h-10 w-10 rounded-full border border-white/10 bg-white/5 hover:bg-white/10 text-foreground transition-all active:scale-95 shrink-0"
+          >
+            <RefreshCw className={cn("w-4 h-4", isRefreshing && "animate-spin")} />
+          </Button>
 
           <Button
             variant="ghost"
