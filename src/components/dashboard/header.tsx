@@ -7,14 +7,25 @@ import { MarketSelector } from './market-selector';
 import { Button } from '@/components/ui/button';
 import { Avatar, AvatarFallback } from '@/components/ui/avatar';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { LogOut, Zap, ShieldCheck, RefreshCw, Timer } from 'lucide-react';
+import { LogOut, Zap, ShieldCheck, RefreshCw, Timer, BookmarkCheck } from 'lucide-react';
 import { SidebarTrigger } from '@/components/ui/sidebar';
+import { Switch } from '@/components/ui/switch';
 import { cn } from '@/lib/utils';
 import { Badge } from '@/components/ui/badge';
 
 export function Header() {
-  const { authState, logout, switchAccount, isReconnecting, networkGlitch, refreshCountdown } = useDeriv();
+  const {
+    authState,
+    logout,
+    switchAccount,
+    isReconnecting,
+    networkGlitch,
+    refreshCountdown,
+    sessionProtocol,
+    setSaveSettingsEnabled,
+  } = useDeriv();
   const [isRefreshing, setIsRefreshing] = useState(false);
+  const isSaveSettingsEnabled = sessionProtocol.isSaveSettingsEnabled;
 
   const handleMobileRefresh = () => {
     setIsRefreshing(true);
@@ -134,6 +145,31 @@ export function Header() {
 
           <MarketSelector />
 
+          {/* Desktop Save Settings Toggle */}
+          <div
+            className={cn(
+              "hidden md:flex items-center gap-2 h-10 px-2.5 rounded-lg border transition-colors shrink-0",
+              isSaveSettingsEnabled
+                ? "bg-primary/10 border-primary/40 text-primary"
+                : "bg-white/5 border-white/10 text-muted-foreground"
+            )}
+          >
+            <BookmarkCheck
+              className={cn(
+                "w-3.5 h-3.5 shrink-0",
+                isSaveSettingsEnabled ? "text-primary" : "text-muted-foreground"
+              )}
+            />
+            <span className="text-[11px] font-bold tracking-tight whitespace-nowrap text-foreground">
+              Save Settings
+            </span>
+            <Switch
+              checked={isSaveSettingsEnabled}
+              onCheckedChange={setSaveSettingsEnabled}
+              aria-label="Save Settings"
+            />
+          </div>
+
           {/* Mobile Circular Page Refresh Button */}
           <Button
             type="button"
@@ -151,7 +187,7 @@ export function Header() {
           {authState.accounts.length > 0 && (
             <div className="hidden md:block shrink-0">
               {renderAccountSelect(
-                "w-[165px] lg:w-[190px] h-10 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5"
+                "w-[140px] lg:w-[175px] h-10 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5"
               )}
             </div>
           )}
@@ -169,7 +205,7 @@ export function Header() {
                 {formattedBalance} <span className="text-[11px] font-bold text-muted-foreground">{displayCurrency}</span>
               </p>
             </div>
-            <Avatar className="hidden lg:flex w-10 h-10 border-2 border-primary/20 ring-2 ring-background ring-offset-2 ring-offset-primary/20 shrink-0">
+            <Avatar className="hidden xl:flex w-10 h-10 border-2 border-primary/20 ring-2 ring-background ring-offset-2 ring-offset-primary/20 shrink-0">
               <AvatarFallback className="bg-primary text-white font-bold text-[10px]">
                 {isVirtualAccount ? 'DEMO' : 'REAL'}
               </AvatarFallback>
@@ -193,7 +229,7 @@ export function Header() {
         {authState.accounts.length > 0 ? (
           <div className="flex-1 min-w-0">
             {renderAccountSelect(
-              "w-full h-10 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5 rounded-lg"
+              "w-full h-9 text-xs font-bold bg-white/5 border-white/10 text-foreground px-2.5 rounded-lg"
             )}
           </div>
         ) : (
@@ -215,6 +251,35 @@ export function Header() {
             <span className="text-[10px] font-bold text-muted-foreground">{displayCurrency}</span>
           </p>
         </div>
+      </div>
+
+      {/* Mobile Save Settings Toggle Strip */}
+      <div className="flex md:hidden items-center justify-between gap-3 px-3 py-1 border-t border-white/5 bg-card/60">
+        <div className="flex items-center gap-2 min-w-0">
+          <BookmarkCheck
+            className={cn(
+              "w-3.5 h-3.5 shrink-0",
+              isSaveSettingsEnabled ? "text-primary" : "text-muted-foreground"
+            )}
+          />
+          <span className="text-xs font-bold text-foreground whitespace-nowrap">
+            Save Settings
+          </span>
+          <span className="text-muted-foreground/50 shrink-0" aria-hidden="true">·</span>
+          <span
+            className={cn(
+              "text-[11px] font-semibold truncate",
+              isSaveSettingsEnabled ? "text-primary" : "text-muted-foreground"
+            )}
+          >
+            {isSaveSettingsEnabled ? 'Active' : 'Off'}
+          </span>
+        </div>
+        <Switch
+          checked={isSaveSettingsEnabled}
+          onCheckedChange={setSaveSettingsEnabled}
+          aria-label="Save Settings"
+        />
       </div>
     </header>
   );

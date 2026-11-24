@@ -198,6 +198,7 @@ export interface DerivContextType {
   setExecutionSettings: (settings: Partial<ExecutionSettings>) => void;
   sessionProtocol: SessionProtocolSettings;
   setSessionProtocol: (settings: Partial<SessionProtocolSettings>) => void;
+  setSaveSettingsEnabled: (enabled: boolean) => void;
   login: (token: string, mode: 'pat' | 'api', remember?: boolean) => Promise<void>;
   adminLogin: (email: string, pass: string) => boolean;
   logout: () => void;

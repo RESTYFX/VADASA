@@ -80,20 +80,66 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
     return null;
   }, []);
 
+  const SAVED_PREFERENCES_KEY = 'deriv_saved_preferences';
+
+  const writeSavedSettingsSnapshot = useCallback((overrides?: {
+    auth?: AuthState;
+    symbol?: string;
+    robotId?: RobotId;
+    stratType?: StrategyType;
+    stratParams?: StrategyParams;
+    execSettings?: ExecutionSettings;
+    botEnabled?: boolean;
+    hunterEnabled?: boolean;
+  }) => {
+    if (typeof window === 'undefined') return;
+    const authSnapshot = overrides?.auth ?? authState;
+    const activeAcc = authSnapshot.accounts[authSnapshot.activeAccountIndex];
+    const stratParamsSnapshot = overrides?.stratParams ?? strategyParams;
+    const execSnapshot = overrides?.execSettings ?? executionSettings;
+    const prefs = {
+      selectedSymbol: overrides?.symbol ?? selectedSymbol,
+      activeRobotId: overrides?.robotId ?? activeRobotId,
+      strategyType: overrides?.stratType ?? strategyType,
+      strategyParams: stratParamsSnapshot,
+      executionSettings: execSnapshot,
+      isBotEnabled: overrides?.botEnabled ?? isBotEnabled,
+      isHunterEnabled: overrides?.hunterEnabled ?? isHunterEnabled,
+      activeAccountId: activeAcc?.account_id,
+      activeAccountIndex: authSnapshot.activeAccountIndex,
+      isVirtual: activeAcc?.is_virtual ?? authSnapshot.isVirtual,
+    };
+    localStorage.setItem('deriv_strategy', JSON.stringify(stratParamsSnapshot));
+    localStorage.setItem('deriv_execution', JSON.stringify(execSnapshot));
+    localStorage.setItem(SAVED_PREFERENCES_KEY, JSON.stringify(prefs));
+  }, [authState, selectedSymbol, activeRobotId, strategyType, strategyParams, executionSettings, isBotEnabled, isHunterEnabled]);
+
+  const clearSavedSettingsSnapshot = useCallback(() => {
+    if (typeof window === 'undefined') return;
+    localStorage.removeItem('deriv_strategy');
+    localStorage.removeItem('deriv_execution');
+    localStorage.removeItem(SAVED_PREFERENCES_KEY);
+  }, []);
+
   // Function Declarations
   const switchAccount = useCallback(async (index: number) => {
     const acc = authState.accounts[index];
     if (acc) {
-      setAuthState(prev => ({
-        ...prev,
+      const nextAuth: AuthState = {
+        ...authState,
         activeAccountIndex: index,
         isVirtual: acc.is_virtual,
         balance: acc.balance,
         currency: acc.currency
-      }));
+      };
+      setAuthState(nextAuth);
+      localStorage.setItem('deriv_auth', JSON.stringify(nextAuth));
+      if (sessionProtocol.isSaveSettingsEnabled) {
+        writeSavedSettingsSnapshot({ auth: nextAuth });
+      }
       window.location.reload();
     }
-  }, [authState.accounts]);
+  }, [authState, sessionProtocol.isSaveSettingsEnabled, writeSavedSettingsSnapshot]);
 
   const removeSavedToken = useCallback((token: string) => {
     setSavedTokens(prev => {
@@ -590,12 +636,32 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
         patRef.current = pat;
         sessionStorage.setItem('deriv_pat_session', pat);
 
-        const primaryAccount = data.accounts[0];
+        let targetIndex = 0;
+        if (sessionProtocol.isSaveSettingsEnabled) {
+          try {
+            const rawPrefs = localStorage.getItem(SAVED_PREFERENCES_KEY);
+            if (rawPrefs) {
+              const prefs = JSON.parse(rawPrefs);
+              if (prefs.activeAccountId) {
+                const matchedIdx = data.accounts.findIndex((a: any) => a.account_id === prefs.activeAccountId);
+                if (matchedIdx >= 0) targetIndex = matchedIdx;
+              } else if (typeof prefs.isVirtual === 'boolean') {
+                const matchedIdx = data.accounts.findIndex((a: any) => Boolean(a.is_virtual) === prefs.isVirtual);
+                if (matchedIdx >= 0) targetIndex = matchedIdx;
+              }
+            }
+          } catch (prefErr) {
+            console.error('Failed to read saved account preference on login:', prefErr);
+          }
+        }
+
+        const primaryAccount = data.accounts[targetIndex] || data.accounts[0];
+        const resolvedIndex = data.accounts.indexOf(primaryAccount);
         const newAuthState = {
           ...authState,
           isLoggedIn: true,
           accounts: data.accounts,
-          activeAccountIndex: 0,
+          activeAccountIndex: resolvedIndex >= 0 ? resolvedIndex : 0,
           isVirtual: primaryAccount.is_virtual,
           balance: primaryAccount.balance,
           currency: primaryAccount.currency,
@@ -603,6 +669,7 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
           mode
         };
         setAuthState(newAuthState);
+        localStorage.setItem('deriv_auth', JSON.stringify(newAuthState));
 
         if (remember) {
           const existing = savedTokens.find(t => t.token === pat);
@@ -615,7 +682,7 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
           }
         }
 
-        connect(data.accounts[0].account_id);
+        connect(primaryAccount.account_id);
       } else {
         throw new Error(data.error || 'Identity Sync Failed');
       }
@@ -717,16 +784,50 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
         if (savedProtocol) setSessionProtocol(JSON.parse(savedProtocol));
 
         const proto = savedProtocol ? JSON.parse(savedProtocol) : DEFAULT_SESSION_PROTOCOL;
+        let savedPrefs: any = null;
         if (proto.isSaveSettingsEnabled) {
           const savedStrategy = localStorage.getItem('deriv_strategy');
           const savedExec = localStorage.getItem('deriv_execution');
-          if (savedStrategy) setStrategyParams(JSON.parse(savedStrategy));
-          if (savedExec) setExecutionSettings(JSON.parse(savedExec));
+          const rawPrefs = localStorage.getItem(SAVED_PREFERENCES_KEY);
+
+          if (rawPrefs) {
+            savedPrefs = JSON.parse(rawPrefs);
+            if (savedPrefs.selectedSymbol) {
+              setSelectedSymbol(savedPrefs.selectedSymbol);
+              selectedSymbolRef.current = savedPrefs.selectedSymbol;
+            }
+            if (savedPrefs.activeRobotId) setActiveRobotId(savedPrefs.activeRobotId);
+            if (savedPrefs.strategyType) setStrategyType(savedPrefs.strategyType);
+            if (typeof savedPrefs.isBotEnabled === 'boolean') setIsBotEnabled(savedPrefs.isBotEnabled);
+            if (typeof savedPrefs.isHunterEnabled === 'boolean') setIsHunterEnabled(savedPrefs.isHunterEnabled);
+            if (savedPrefs.strategyParams) setStrategyParams(savedPrefs.strategyParams);
+            if (savedPrefs.executionSettings) setExecutionSettings(savedPrefs.executionSettings);
+          }
+
+          if (savedStrategy && !savedPrefs?.strategyParams) setStrategyParams(JSON.parse(savedStrategy));
+          if (savedExec && !savedPrefs?.executionSettings) setExecutionSettings(JSON.parse(savedExec));
         }
 
         if (savedAuth) {
           const parsedAuth = JSON.parse(savedAuth);
           if (parsedAuth.isLoggedIn && parsedAuth.accounts?.length > 0) {
+            if (proto.isSaveSettingsEnabled && savedPrefs) {
+              let resolvedIdx = -1;
+              if (savedPrefs.activeAccountId) {
+                resolvedIdx = parsedAuth.accounts.findIndex((a: any) => a.account_id === savedPrefs.activeAccountId);
+              }
+              if (resolvedIdx < 0 && typeof savedPrefs.activeAccountIndex === 'number' && parsedAuth.accounts[savedPrefs.activeAccountIndex]) {
+                resolvedIdx = savedPrefs.activeAccountIndex;
+              }
+              if (resolvedIdx >= 0) {
+                const chosenAcc = parsedAuth.accounts[resolvedIdx];
+                parsedAuth.activeAccountIndex = resolvedIdx;
+                parsedAuth.isVirtual = chosenAcc.is_virtual;
+                parsedAuth.balance = chosenAcc.balance;
+                parsedAuth.currency = chosenAcc.currency;
+              }
+            }
+
             const sessionRes = await fetch('/api/deriv/login');
             const sessionData = await sessionRes.json();
             if (!isMounted) return;
@@ -734,7 +835,7 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
             const hasToken = sessionData.authenticated || Boolean(getSessionToken());
             if (hasToken) {
               setAuthState(parsedAuth);
-              const activeAcc = parsedAuth.accounts[parsedAuth.activeAccountIndex];
+              const activeAcc = parsedAuth.accounts[parsedAuth.activeAccountIndex] || parsedAuth.accounts[0];
               if (activeAcc) connect(activeAcc.account_id);
             } else {
               localStorage.removeItem('deriv_auth');
@@ -763,11 +864,48 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
       localStorage.setItem('deriv_protocol', JSON.stringify(sessionProtocol));
 
       if (sessionProtocol.isSaveSettingsEnabled) {
-        localStorage.setItem('deriv_strategy', JSON.stringify(strategyParams));
-        localStorage.setItem('deriv_execution', JSON.stringify(executionSettings));
+        writeSavedSettingsSnapshot();
       }
     }
-  }, [authState, strategyParams, executionSettings, sessionProtocol, isInitializing]);
+  }, [
+    authState,
+    selectedSymbol,
+    activeRobotId,
+    strategyType,
+    strategyParams,
+    executionSettings,
+    isBotEnabled,
+    isHunterEnabled,
+    sessionProtocol,
+    isInitializing,
+    writeSavedSettingsSnapshot,
+  ]);
+
+  const setSaveSettingsEnabled = useCallback((enabled: boolean) => {
+    const nextProtocol: SessionProtocolSettings = {
+      ...sessionProtocol,
+      isSaveSettingsEnabled: enabled,
+    };
+    setSessionProtocol(nextProtocol);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem('deriv_protocol', JSON.stringify(nextProtocol));
+      localStorage.setItem('deriv_auth', JSON.stringify(authState));
+    }
+
+    if (enabled) {
+      writeSavedSettingsSnapshot();
+      toast({
+        title: 'Save Settings Enabled',
+        description: 'Trading settings, selected market, and account type will persist across page refreshes.',
+      });
+    } else {
+      clearSavedSettingsSnapshot();
+      toast({
+        title: 'Save Settings Disabled',
+        description: 'Saved configuration lock cleared. Future refreshes will use default trading settings.',
+      });
+    }
+  }, [sessionProtocol, authState, writeSavedSettingsSnapshot, clearSavedSettingsSnapshot]);
 
   useEffect(() => {
     if (!isMonitoring) {
@@ -916,6 +1054,7 @@ export function DerivProvider({ children }: { children: React.ReactNode }) {
       setStrategyParams: (p) => setStrategyParams(v => ({...v, ...p})), 
       executionSettings, setExecutionSettings: (s) => setExecutionSettings(v => ({...v, ...s})), 
       sessionProtocol, setSessionProtocol: (p) => setSessionProtocol(v => ({...v, ...p})), 
+      setSaveSettingsEnabled,
       login, 
       adminLogin: (email, pass) => email === 'admin' && pass === 'password', 
       logout, 
